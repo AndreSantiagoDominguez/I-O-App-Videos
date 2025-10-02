@@ -8,12 +8,13 @@ class IVideosRepositorySequelize extends IVideos {
   }
 
   async getAllVideos() {
-    const videos = await VideoModel.findAll();
-    return videos.map((v) => toVideoEntity(v));
+    const videos = await VideoModel.findAll({ raw: true });
+    return videos.map(toVideoEntity);
   }
 
   async getVideoById(id) {
-    return this.videos.find((v) => v.id === id) || null;
+    const video = await VideoModel.findByPk(id, { raw: true });
+    return video ? toVideoEntity(video) : {};
   }
 
   async addVideo(video) {
@@ -22,20 +23,10 @@ class IVideosRepositorySequelize extends IVideos {
   }
 
   async deleteVideo(id) {
-    const index = this.videos.findIndex((v) => v.id === id);
-    if (index !== -1) {
-      return this.videos.splice(index, 1)[0];
-    }
-    return null;
-  }
-
-  async updateVideo(id, videoData) {
-    const index = this.videos.findIndex((v) => v.id === id);
-    if (index !== -1) {
-      this.videos[index] = { ...this.videos[index], ...videoData };
-      return this.videos[index];
-    }
-    return null;
+    const numberOfRowsDestroyed = await VideoModel.destroy({
+      where: { id: id },
+    });
+    return numberOfRowsDestroyed > 0;
   }
 }
 

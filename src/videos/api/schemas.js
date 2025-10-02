@@ -7,6 +7,16 @@ class GetAllVideosResponse {
   }
 }
 
+class GetVideoByIdRequest {
+  constructor(id) {
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      throw new Error("El ID del video debe ser un número entero positivo.");
+    }
+    this.id = numericId;
+  }
+}
+
 class ErrorResponse {
   constructor(error, status) {
     this.error = error;
@@ -17,4 +27,5 @@ class ErrorResponse {
 module.exports = {
   GetAllVideosResponse,
   ErrorResponse,
+  GetVideoByIdRequest,
 };
