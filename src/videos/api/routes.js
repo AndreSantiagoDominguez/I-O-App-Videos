@@ -80,10 +80,7 @@ const videosRouter = async (req, res) => {
       // 3. Preparamos las cabeceras para el streaming de audio
       res.writeHead(200, {
         "Content-Type": "audio/mpeg",
-        /* "Content-Disposition": `attachment; filename="${videoData.video.name.replace(
-          ".mp4",
-          ".mp3"
-        )}"`, */
+        "Content-Disposition": `attachment; filename="${videoData.video.name}.mp3"`, 
       });
 
       // 4. Escuchamos los mensajes que llegan por port1 (chunks, errores, fin)
