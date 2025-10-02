@@ -1,65 +1,139 @@
-/* const { parentPort } = require('worker_threads');
-const ffmpeg = require('fluent-ffmpeg');
-const fs = require('fs');
+// Worker que ejecuta ffmpeg como proceso hijo y stream de audio al hilo principal
+const { parentPort } = require("worker_threads");
+const { spawn } = require("child_process");
+const fs = require("fs");
 
-parentPort.on('message', ({ videoPath }) => {
-  if (!fs.existsSync(videoPath)) {
-    parentPort.postMessage({ error: 'El archivo de video no existe.' });
+// El worker espera recibir: { videoPath, format, port }
+parentPort.on("message", (message) => {
+  const { videoPath, format, port } = message || {};
+
+  if (!videoPath) {
+    parentPort.postMessage({ error: "videoPath no fue proporcionado" });
     return;
   }
 
-  // Configura FFmpeg
-  const command = ffmpeg(videoPath)
-    .withVideoBitrate('500k') // Baja la calidad del video (ej. 500kbps)
-    .withAudioBitrate('128k') // Baja la calidad del audio
-    .toFormat('mp4')
-    .on('error', (err) => {
-      console.error('Error en FFMPEG:', err);
-      // En caso de error en ffmpeg, lo comunicamos al hilo principal
-      parentPort.postMessage({ error: err.message });
+  if (!fs.existsSync(videoPath)) {
+    parentPort.postMessage({ error: `El archivo no existe: ${videoPath}` });
+    return;
+  }
+
+  if (!port) {
+    parentPort.postMessage({
+      error: "No se recibió el MessagePort para streaming",
     });
-    
-  // Hacemos pipe de la salida de FFmpeg directamente al 'stdout' del worker.
-  // El hilo principal podrá leer este stream.
-  command.pipe(process.stdout);
-}); */
+    return;
+  }
 
-// src/workers/video.worker.js
+  // Opciones enfocadas en velocidad: sacrificar calidad
+  // Para mp3: -vn (no video), -ac 2 (stereo), -b:a 64k (baja calidad), -ar 22050 (sample rate bajo)
+  const ffmpegArgs = ["-hide_banner", "-loglevel", "warning", "-i", videoPath];
 
-// src/workers/video.worker.js
+  if (format === "mp3") {
+    ffmpegArgs.push(
+      "-vn",
+      "-ac",
+      "2",
+      "-ar",
+      "22050",
+      "-b:a",
+      "64k",
+      "-threads",
+      "2",
+      "-f",
+      "mp3",
+      "pipe:1"
+    );
+  } else {
+    ffmpegArgs.push(
+      "-vn",
+      "-ac",
+      "2",
+      "-ar",
+      "22050",
+      "-b:a",
+      "64k",
+      "-f",
+      "mp3",
+      "pipe:1"
+    );
+  }
 
-// src/workers/video.worker.js
+  // Spawn ffmpeg directamente
+  const ff = spawn("ffmpeg", ffmpegArgs, { windowsHide: true });
 
-// src/workers/video.worker.js
+  ff.on("error", (err) => {
+    try {
+      port.postMessage({
+        error: `falló al ejecutar ffmpeg: ${err.message || err}`,
+      });
+    } catch (e) {
+      parentPort.postMessage({
+        error: `falló al enviar error: ${e.message || e}`,
+      });
+    }
+  });
 
-const { parentPort } = require('worker_threads');
-const ffmpeg = require('fluent-ffmpeg');
-const fs = require('fs');
+  // Cuando ffmpeg escribe en stdout, leemos chunks y los transferimos como ArrayBuffer
+  ff.stdout.on("data", (chunk) => {
+    try {
+      // Preferimos transferir el ArrayBuffer subyacente cuando sea posible
+      if (chunk && chunk.buffer) {
+        const ab = chunk.buffer.slice(
+          chunk.byteOffset,
+          chunk.byteOffset + chunk.byteLength
+        );
+        port.postMessage({ chunk: ab }, [ab]);
+      } else {
+        // Fallback: enviar copia
+        port.postMessage({ chunk: Buffer.from(chunk) });
+      }
+    } catch (e) {
+      // En caso de fallo al transferir, intentar enviar copia
+      try {
+        port.postMessage({ chunk: Buffer.from(chunk) });
+      } catch (err) {
+        parentPort.postMessage({
+          error: `error enviando chunk: ${err.message || err}`,
+        });
+      }
+    }
+  });
 
-parentPort.on('message', ({ videoPath }) => {
-  if (!fs.existsSync(videoPath)) { /* ... */ }
+  ff.stderr.on("data", (d) => {
+    const text = d.toString();
+    // Si ffmpeg lanza un error crítico, lo comunicamos
+    if (/Error|invalid|failed/i.test(text)) {
+      try {
+        port.postMessage({ error: text });
+      } catch (e) {
+        parentPort.postMessage({
+          error: `error enviando stderr: ${e.message || e}`,
+        });
+      }
+    }
+  });
 
-  const command = ffmpeg(videoPath)
-    .withVideoCodec('libvpx-vp9')
-    .withAudioCodec('libopus')
-    .toFormat('webm')
-    .withVideoBitrate('500k')
+  ff.on("close", (code, signal) => {
+    if (code && code !== 0) {
+      try {
+        port.postMessage({ error: `ffmpeg exited with code ${code}` });
+      } catch (e) {
+        parentPort.postMessage({
+          error: `error enviando cierre: ${e.message || e}`,
+        });
+      }
+    }
 
-    // --- ¡NUEVAS OPCIONES DE VELOCIDAD! ---
-    .outputOptions([
-      '-preset ultrafast', // Sacrifica calidad por muchísima más velocidad
-      '-threads 2'         // Puedes ajustar el número de hilos que usa ffmpeg
-    ])
-    .size('120x?') // Redimensiona a 640px de ancho, manteniendo la proporción
-    // ------------------------------------
+    try {
+      port.postMessage({ end: true });
+    } catch (e) {
+      parentPort.postMessage({
+        error: `error enviando end: ${e.message || e}`,
+      });
+    }
 
-    .on('start', (commandLine) => {
-      console.log('✅ Comando FFmpeg iniciado: ' + commandLine);
-    })
-    .on('stderr', (stderrLine) => {
-      console.log('🔎 Salida de FFmpeg: ' + stderrLine);
-    })
-    .on('error', (err) => { /* ... */ });
-
-  command.pipe(process.stdout);
+    try {
+      port.close();
+    } catch (e) {}
+  });
 });
