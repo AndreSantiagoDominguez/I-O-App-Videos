@@ -1,5 +1,6 @@
 const IVideos = require("../../domain/IVideos");
 const VideoModel = require("./video.model");
+const { toVideoEntity } = require("./mapers");
 
 class IVideosRepositorySequelize extends IVideos {
   constructor() {
@@ -8,7 +9,7 @@ class IVideosRepositorySequelize extends IVideos {
 
   async getAllVideos() {
     const videos = await VideoModel.findAll();
-    console.log("All videos: ", JSON.stringify(videos, null, 2));
+    return videos.map((v) => toVideoEntity(v));
   }
 
   async getVideoById(id) {
