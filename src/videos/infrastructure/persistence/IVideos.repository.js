@@ -18,8 +18,11 @@ class IVideosRepositorySequelize extends IVideos {
   }
 
   async addVideo(video) {
-    this.videos.push(video);
-    return video;
+    const newVideo = await VideoModel.create({
+        url: video.url,
+        name: video.name
+    });
+    return toVideoEntity(newVideo.get({ plain: true }));
   }
 
   async deleteVideo(id) {
