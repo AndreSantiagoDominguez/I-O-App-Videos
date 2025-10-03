@@ -1,23 +1,20 @@
-# Usa una imagen oficial de Node.js como base. La v18-alpine es ligera y estable.
-FROM alpine:3.18
-
-ENV NODE_VERSION 22.20.0
+# Usa la imagen oficial de Node.js (LTS) como base
+FROM node:18-alpine
 
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Copia los archivos package.json y package-lock.json al directorio de trabajo
-# Se copian primero por separado para aprovechar el caché de Docker.
+# Copia package.json y package-lock.json para aprovechar caché de dependencias
 COPY package*.json ./
 
-# Instala las dependencias del proyecto (incluyendo las de desarrollo para la build si es necesario)
-RUN npm install
+# Instala las dependencias
+RUN npm ci --only=production
 
-# Copia el resto de los archivos de tu proyecto al directorio de trabajo
+# Copia el resto de los archivos de la aplicación
 COPY . .
 
-# Expone el puerto en el que correrá tu API dentro del contenedor
+# Expone el puerto en el que correrá la API
 EXPOSE 3000
 
-# Define el comando para ejecutar la aplicación cuando se inicie el contenedor
+# Ejecuta la aplicación
 CMD [ "node", "src/server.js" ]

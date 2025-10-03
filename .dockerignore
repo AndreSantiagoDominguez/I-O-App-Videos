@@ -3,6 +3,7 @@ node_modules/
 data/
 .git/
 .gitignore
+README.md
 
 # Ignorar logs de npm
 npm-debug.log
