@@ -13,6 +13,44 @@ const {
   ErrorResponse,
 } = require("./schemas");
 
+// Función auxiliar para parsear multipart/form-data
+function parseMultipart(buffer, boundary) {
+    const parts = [];
+    const boundaryBuffer = Buffer.from(`--${boundary}`);
+    let start = 0;
+
+    while (true) {
+        const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
+        if (boundaryIndex === -1) break;
+
+        const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
+        if (nextBoundaryIndex === -1) break;
+
+        const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, nextBoundaryIndex);
+        const headerEndIndex = partBuffer.indexOf('\r\n\r\n');
+        
+        if (headerEndIndex !== -1) {
+            const headers = partBuffer.slice(0, headerEndIndex).toString();
+            const data = partBuffer.slice(headerEndIndex + 4);
+
+            const nameMatch = headers.match(/name="([^"]+)"/);
+            const filenameMatch = headers.match(/filename="([^"]+)"/);
+
+            if (nameMatch) {
+                parts.push({
+                    name: nameMatch[1],
+                    filename: filenameMatch ? filenameMatch[1] : null,
+                    data: data.slice(0, -2)
+                });
+            }
+        }
+
+        start = nextBoundaryIndex;
+    }
+
+    return parts;
+}
+
 // Creamos la función del router que maneja la petición
 const videosRouter = async (req, res) => {
   const { method, url } = req;
@@ -218,43 +256,6 @@ const videosRouter = async (req, res) => {
     return;
   }
 
-  // Función auxiliar para parsear multipart/form-data
-  function parseMultipart(buffer, boundary) {
-    const parts = [];
-    const boundaryBuffer = Buffer.from(`--${boundary}`);
-    let start = 0;
-
-    while (true) {
-      const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
-      if (boundaryIndex === -1) break;
-
-      const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
-      if (nextBoundaryIndex === -1) break;
-
-      const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, nextBoundaryIndex);
-      const headerEndIndex = partBuffer.indexOf('\r\n\r\n');
-
-      if (headerEndIndex !== -1) {
-        const headers = partBuffer.slice(0, headerEndIndex).toString();
-        const data = partBuffer.slice(headerEndIndex + 4);
-
-        const nameMatch = headers.match(/name="([^"]+)"/);
-        const filenameMatch = headers.match(/filename="([^"]+)"/);
-
-        if (nameMatch) {
-          parts.push({  
-            name: nameMatch[1],
-            filename: filenameMatch ? filenameMatch[1] : null,
-            data: data.slice(0, -2)
-          });
-        }
-      }
-    }
-
-    start = nextBoundaryIndex;
-  }
-
-  return parts;
 }
 
 

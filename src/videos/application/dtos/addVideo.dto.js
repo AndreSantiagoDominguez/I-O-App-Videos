@@ -4,3 +4,5 @@ class addVideoInput {
         this.name = name;
     }
 }
+
+module.exports = addVideoInput;  
