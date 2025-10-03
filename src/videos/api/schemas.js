@@ -17,6 +17,25 @@ class GetVideoByIdRequest {
   }
 }
 
+class AddVideoRequest {
+  constructor(filename, name) {
+    if (!filename || !name) {
+      throw new Error("El archivo y el nombre son requeridos.");
+    }
+    
+    // Validar extensión del video
+    const validExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv'];
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+    
+    if (!validExtensions.includes(ext)) {
+      throw new Error("Formato de video no válido. Extensiones permitidas: " + validExtensions.join(', '));
+    }
+    
+    this.filename = filename;
+    this.name = name;
+  }
+}
+
 class ErrorResponse {
   constructor(error, status) {
     this.error = error;
@@ -28,4 +47,5 @@ module.exports = {
   GetAllVideosResponse,
   ErrorResponse,
   GetVideoByIdRequest,
+  AddVideoRequest
 };
