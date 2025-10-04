@@ -26,10 +26,10 @@ services:
     build:
       context: ../../..
       dockerfile: Dockerfile
-    container_name: api-videos-app
+    container_name: api-videos-app1
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "4000:4000"
     volumes:
       - ../../../data:/app/data
     environment:

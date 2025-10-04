@@ -13,36 +13,14 @@ const mainRouter = (req, res) => {
   res.end(JSON.stringify({ message: "Ruta no encontrada" }));
 };
 
-// Servidor
+// Servidor (single-process)
 const http = require("http");
-const cluster = require("cluster");
-const os = require("os");
+const PORT = 4000;
 
-const PORT = 3000;
-const numCPUs = os.cpus().length;
+const server = http.createServer(mainRouter);
 
-// Cluster Principal
-if (cluster.isPrimary) {
-  console.log(`Procesos primario corriendo: ${process.pid}`);
-
-  // Fork workers.
-  for (let i = 0; i < numCPUs; i++) {
-    cluster.fork();
-  }
-
-  // Evento que se ejecuta si un workwer falla
-  cluster.on("exit", (worker, code, signal) => {
-    console.log(`worker ${worker.process.pid} died... reloading`);
-    cluster.fork();
-  });
-} else {
-  // Workers can share any TCP connection
-  // In this case it is an HTTP server
-  const server = http.createServer(mainRouter);
-
-  server.listen(PORT, () => {
-    console.log(
-      `Worker ${process.pid} iniciado. Escuchando en http://localhost:${PORT}`
-    );
-  });
-}
+server.listen(PORT, () => {
+  console.log(
+    `Process ${process.pid} iniciado. Escuchando en http://localhost:${PORT}`
+  );
+});
