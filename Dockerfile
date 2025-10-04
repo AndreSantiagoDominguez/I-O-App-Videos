@@ -14,7 +14,7 @@ RUN npm ci --only=production
 COPY . .
 
 # Expone el puerto en el que correrá la API
-EXPOSE 3000
+EXPOSE 3001
 
 # Ejecuta la aplicación
 CMD [ "node", "src/server.js" ]
